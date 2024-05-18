@@ -1,68 +1,51 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract GamingCoin is ERC20, Ownable {
-    mapping(uint256 => uint256) public itemPrices;
-    mapping(address => uint256) public experience;
+contract DegenGamingToken is ERC20, Ownable {
 
-    enum PlayerRank { Novice, Skilled, Master }
+    // Event to log the redemption of tokens
+    event TokensRedeemed(address indexed redeemer, uint256 amount, string item);
 
-    constructor() ERC20("Gaming Coin", "GCN") Ownable(msg.sender) {
-        itemPrices[1] = 500; // Price for Legendary Weapon
-        itemPrices[2] = 250; // Price for Epic Armor Set
-        itemPrices[3] = 100; // Price for Rare Accessory
-        itemPrices[4] = 50;  // Price for Consumable Pack
+    // Mapping of item names to their token cost
+    mapping(string => uint256) public itemPrices;
+
+    constructor() ERC20("Degen Gaming Token", "DGT") Ownable(msg.sender) {
+    // Initialize the contract owner
+    _mint(msg.sender, 1000000 * 10 ** decimals());
+}
+
+
+    // Function to set the price of items in the in-game store
+    function setItemPrice(string memory itemName, uint256 price) external onlyOwner {
+        itemPrices[itemName] = price;
     }
 
-    function mintTokens(address _to, uint256 _amount) external onlyOwner {
-        _mint(_to, _amount);
+    // Minting new tokens: Only the owner can mint tokens
+    function mint(address to, uint256 amount) external onlyOwner {
+        require(to != address(0), "Cannot mint to zero address");
+        _mint(to, amount);
     }
 
-    function transferTokens(address _to, uint256 _amount) external {
-        require(balanceOf(msg.sender) >= _amount, "Insufficient balance");
-        transfer(_to, _amount);
+    // Burning tokens: Anyone can burn their own tokens
+    function burn(uint256 amount) external {
+        _burn(msg.sender, amount);
     }
 
-    function viewMarketplace() external pure returns (string memory) {
-        return "Marketplace: {1} Legendary Weapon (500) {2} Epic Armor Set (250) {3} Rare Accessory (100) {4} Consumable Pack (50)";
+    // Redeeming tokens for in-game items
+    function redeemTokens(string memory itemName) external {
+        uint256 price = itemPrices[itemName];
+        require(price > 0, "Item not found");
+        require(balanceOf(msg.sender) >= price, "Insufficient balance to redeem item");
+        
+        _burn(msg.sender, price);
+        emit TokensRedeemed(msg.sender, price, itemName);
     }
 
-    function buyItem(uint256 _itemId) external {
-        require(itemPrices[_itemId] > 0, "Item not available");
-        require(_itemId <= 4, "Invalid item ID");
-        require(balanceOf(msg.sender) >= itemPrices[_itemId], "Insufficient balance");
+    // Transfer functions are inherited from ERC20 and do not require modification
+    // Check token balance: Players can check their balance using the inherited balanceOf() function
 
-        uint256 cost = itemPrices[_itemId];
-        transfer(owner(), cost);
-        experience[msg.sender] += cost; // Gain experience equal to the spent amount
-    }
-
-    function burnTokens(uint256 _amount) external {
-        require(balanceOf(msg.sender) >= _amount, "Insufficient balance");
-        _burn(msg.sender, _amount);
-        experience[msg.sender] += _amount / 20; // Gain 1 experience per 20 tokens burned
-    }
-
-    function getBalance() external view returns (uint256) {
-        return balanceOf(msg.sender);
-    }
-
-    function decimals() public pure override returns (uint8) {
-        return 0;
-    }
-
-    function getItemPrice(uint256 _itemId) external view returns (uint256) {
-        require(_itemId > 0 && _itemId <= 4, "Invalid item ID");
-        return itemPrices[_itemId];
-    }
-
-    function getPlayerRank(address _player) external view returns (string memory rank, uint256 exp) {
-        exp = experience[_player];
-        if (exp >= 10000) rank = "Master";
-        else if (exp >= 5000) rank = "Skilled";
-        else rank = "Novice";
-    }
+    // transfer and transferFrom functions are inherited from ERC20
 }
